@@ -1,7 +1,6 @@
 local ESP = {}
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local UserInputService = game:GetService("UserInputService")
 local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 
@@ -11,360 +10,219 @@ ESP.ShowNametags = true
 ESP.ShowHealth = true
 ESP.ShowDistance = true
 ESP.BoxColor = Color3.fromRGB(255, 255, 255)
-ESP.OutlineColor = Color3.fromRGB(0, 0, 0)
 ESP.BoxThickness = 1
 ESP.NametagColor = Color3.fromRGB(255, 255, 255)
-ESP.HealthColor = Color3.fromRGB(0, 255, 0)
 
 ESP.PlayerData = {}
 ESP.Connections = {}
 
 local BONE_PARTS = {"Head", "Left Arm", "Left Leg", "Right Arm", "Right Leg", "Torso"}
 
-local function CreateDrawing(type, properties)
-    local drawing = Drawing.new(type)
-    for prop, value in pairs(properties or {}) do
-        drawing[prop] = value
+local function CreateDrawing(type, props)
+    local d = Drawing.new(type)
+    for k, v in pairs(props or {}) do
+        d[k] = v
     end
-    return drawing
+    return d
 end
 
-local function GetPlayerModel(username)
-    local model = workspace:FindFirstChild(username)
-    if model and model:IsA("Model") then
-        return model
-    end
+local function GetModel(model)
+    local m = workspace:FindFirstChild(model)
+    if m and m:IsA("Model") then return m end
     return nil
 end
 
-local function GetModelBounds(model)
-    local minPos = Vector3.new(math.huge, math.huge, math.huge)
-    local maxPos = Vector3.new(-math.huge, -math.huge, -math.huge)
+local function GetBounds(model)
+    local min = Vector3.new(math.huge, math.huge, math.huge)
+    local max = Vector3.new(-math.huge, -math.huge, -math.huge)
 
-    for _, partName in ipairs(BONE_PARTS) do
-        local part = model:FindFirstChild(partName)
-        if part and part:IsA("BasePart") then
-            local cf = part.CFrame
-            local size = part.Size
-
-            local corners = {
-                cf * Vector3.new(-size.X/2, -size.Y/2, -size.Z/2),
-                cf * Vector3.new(size.X/2, -size.Y/2, -size.Z/2),
-                cf * Vector3.new(-size.X/2, size.Y/2, -size.Z/2),
-                cf * Vector3.new(size.X/2, size.Y/2, -size.Z/2),
-                cf * Vector3.new(-size.X/2, -size.Y/2, size.Z/2),
-                cf * Vector3.new(size.X/2, -size.Y/2, size.Z/2),
-                cf * Vector3.new(-size.X/2, size.Y/2, size.Z/2),
-                cf * Vector3.new(size.X/2, size.Y/2, size.Z/2),
-            }
-
-            for _, corner in ipairs(corners) do
-                minPos = Vector3.new(
-                    math.min(minPos.X, corner.X),
-                    math.min(minPos.Y, corner.Y),
-                    math.min(minPos.Z, corner.Z)
-                )
-                maxPos = Vector3.new(
-                    math.max(maxPos.X, corner.X),
-                    math.max(maxPos.Y, corner.Y),
-                    math.max(maxPos.Z, corner.Z)
-                )
+    for _, name in ipairs(BONE_PARTS) do
+        local p = model:FindFirstChild(name)
+        if p and p:IsA("BasePart") then
+            local cf, sz = p.CFrame, p.Size
+            for _, off in ipairs({
+                Vector3.new(-sz.X/2,-sz.Y/2,-sz.Z/2),
+                Vector3.new(sz.X/2,-sz.Y/2,-sz.Z/2),
+                Vector3.new(-sz.X/2,sz.Y/2,-sz.Z/2),
+                Vector3.new(sz.X/2,sz.Y/2,-sz.Z/2),
+                Vector3.new(-sz.X/2,-sz.Y/2,sz.Z/2),
+                Vector3.new(sz.X/2,-sz.Y/2,sz.Z/2),
+                Vector3.new(-sz.X/2,sz.Y/2,sz.Z/2),
+                Vector3.new(sz.X/2,sz.Y/2,sz.Z/2),
+            }) do
+                local c = cf * off
+                min = Vector3.new(math.min(min.X,c.X), math.min(min.Y,c.Y), math.min(min.Z,c.Z))
+                max = Vector3.new(math.max(max.X,c.X), math.max(max.Y,c.Y), math.max(max.Z,c.Z))
             end
         end
     end
-
-    return minPos, maxPos
+    return min, max
 end
 
-local function GetScreenCorners(minPos, maxPos)
-    local corners3D = {
-        Vector3.new(minPos.X, minPos.Y, minPos.Z),
-        Vector3.new(maxPos.X, minPos.Y, minPos.Z),
-        Vector3.new(minPos.X, maxPos.Y, minPos.Z),
-        Vector3.new(maxPos.X, maxPos.Y, minPos.Z),
-        Vector3.new(minPos.X, minPos.Y, maxPos.Z),
-        Vector3.new(maxPos.X, minPos.Y, maxPos.Z),
-        Vector3.new(minPos.X, maxPos.Y, maxPos.Z),
-        Vector3.new(maxPos.X, maxPos.Y, maxPos.Z),
-    }
-
-    local screenCorners = {}
-    local allOnScreen = true
-
-    for _, corner in ipairs(corners3D) do
-        local screenPos, onScreen = Camera:WorldToViewportPoint(corner)
-        if not onScreen then
-            allOnScreen = false
-        end
-        table.insert(screenCorners, Vector2.new(screenPos.X, screenPos.Y))
+local function ToScreen(min, max)
+    local pts = {}
+    for _, c in ipairs({
+        Vector3.new(min.X,min.Y,min.Z),
+        Vector3.new(max.X,min.Y,min.Z),
+        Vector3.new(min.X,max.Y,min.Z),
+        Vector3.new(max.X,max.Y,min.Z),
+        Vector3.new(min.X,min.Y,max.Z),
+        Vector3.new(max.X,min.Y,max.Z),
+        Vector3.new(min.X,max.Y,max.Z),
+        Vector3.new(max.X,max.Y,max.Z),
+    }) do
+        local s, v = Camera:WorldToViewportPoint(c)
+        table.insert(pts, Vector2.new(s.X, s.Y))
     end
-
-    return screenCorners, allOnScreen
+    return pts
 end
 
-local function GetBoundingBox2D(screenCorners)
-    local minX = math.huge
-    local minY = math.huge
-    local maxX = -math.huge
-    local maxY = -math.huge
-
-    for _, corner in ipairs(screenCorners) do
-        minX = math.min(minX, corner.X)
-        minY = math.min(minY, corner.Y)
-        maxX = math.max(maxX, corner.X)
-        maxY = math.max(maxY, corner.Y)
+local function Box2D(pts)
+    local x1, y1, x2, y2 = math.huge, math.huge, -math.huge, -math.huge
+    for _, p in ipairs(pts) do
+        x1 = math.min(x1, p.X)
+        y1 = math.min(y1, p.Y)
+        x2 = math.max(x2, p.X)
+        y2 = math.max(y2, p.Y)
     end
-
     return {
-        Position = Vector2.new(minX, minY),
-        Size = Vector2.new(maxX - minX, maxY - minY),
-        TopLeft = Vector2.new(minX, minY),
-        TopRight = Vector2.new(maxX, minY),
-        BottomLeft = Vector2.new(minX, maxY),
-        BottomRight = Vector2.new(maxX, maxY),
-        Center = Vector2.new((minX + maxX) / 2, minY),
-        BottomCenter = Vector2.new((minX + maxX) / 2, maxY),
+        X = x1, Y = y1,
+        W = x2 - x1, H = y2 - y1,
+        CX = (x1+x2)/2, CY = (y1+y2)/2,
+        BY = y2,
     }
 end
 
-local function CreatePlayerESP()
+local function NewESP()
     return {
-        BoxOutlineOuter = CreateDrawing("Square", {
-            Filled = false,
-            Color = Color3.fromRGB(0, 0, 0),
-            Thickness = 3,
-            Visible = false,
-        }),
-        BoxOuter = CreateDrawing("Square", {
-            Filled = false,
-            Color = Color3.fromRGB(0, 0, 0),
-            Thickness = 1,
-            Visible = false,
-        }),
-        BoxInner = CreateDrawing("Square", {
-            Filled = false,
-            Color = Color3.fromRGB(255, 255, 255),
-            Thickness = 1,
-            Visible = false,
-        }),
-        BoxOutlineInner = CreateDrawing("Square", {
-            Filled = false,
-            Color = Color3.fromRGB(0, 0, 0),
-            Thickness = 3,
-            Visible = false,
-        }),
-        HealthBarOutline = CreateDrawing("Square", {
-            Filled = true,
-            Color = Color3.fromRGB(0, 0, 0),
-            Thickness = 1,
-            Visible = false,
-        }),
-        HealthBarBG = CreateDrawing("Square", {
-            Filled = true,
-            Color = Color3.fromRGB(40, 40, 40),
-            Thickness = 1,
-            Visible = false,
-        }),
-        HealthBar = CreateDrawing("Square", {
-            Filled = true,
-            Color = Color3.fromRGB(0, 255, 0),
-            Thickness = 1,
-            Visible = false,
-        }),
-        DistanceOutline = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.fromRGB(0, 0, 0),
-            Size = 11,
-            Center = true,
-            Outline = false,
-            Font = 2,
-            Visible = false,
-        }),
-        Distance = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.fromRGB(200, 200, 200),
-            Size = 11,
-            Center = true,
-            Outline = true,
-            Font = 2,
-            Visible = false,
-        }),
-        NametagOutline = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.fromRGB(0, 0, 0),
-            Size = 11,
-            Center = true,
-            Outline = false,
-            Font = 2,
-            Visible = false,
-        }),
-        Nametag = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.fromRGB(255, 255, 255),
-            Size = 11,
-            Center = true,
-            Outline = true,
-            Font = 2,
-            Visible = false,
-        }),
+        BoxOutline = CreateDrawing("Square", {Filled=false, Color=Color3.new(0,0,0), Thickness=3, Visible=false}),
+        Box = CreateDrawing("Square", {Filled=false, Color=Color3.new(1,1,1), Thickness=1, Visible=false}),
+        HealthBG = CreateDrawing("Square", {Filled=true, Color=Color3.new(0.15,0.15,0.15), Thickness=1, Visible=false}),
+        HealthOutline = CreateDrawing("Square", {Filled=false, Color=Color3.new(0,0,0), Thickness=1, Visible=false}),
+        HealthBar = CreateDrawing("Square", {Filled=true, Color=Color3.new(0,1,0), Thickness=1, Visible=false}),
+        DistText = CreateDrawing("Text", {Text="", Color=Color3.new(0.8,0.8,0.8), Size=11, Center=true, Outline=true, Font=2, Visible=false}),
+        DistOutline = CreateDrawing("Text", {Text="", Color=Color3.new(0,0,0), Size=11, Center=true, Outline=false, Font=2, Visible=false}),
+        NameText = CreateDrawing("Text", {Text="", Color=Color3.new(1,1,1), Size=11, Center=true, Outline=true, Font=2, Visible=false}),
+        NameOutline = CreateDrawing("Text", {Text="", Color=Color3.new(0,0,0), Size=11, Center=true, Outline=false, Font=2, Visible=false}),
     }
 end
 
-local function RemovePlayerESP(data)
-    if data then
-        for _, drawing in pairs(data) do
-            if drawing and drawing.Remove then
-                drawing:Remove()
-            end
-        end
+local function RemoveESP(d)
+    for _, v in pairs(d) do
+        if v and v.Remove then pcall(function() v:Remove() end) end
     end
 end
 
 function ESP.Update()
     Camera = workspace.CurrentCamera
-    local localPlayerPos = LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") and LocalPlayer.Character.HumanoidRootPart.Position
+    local lChar = LocalPlayer.Character
+    local lRoot = lChar and lChar:FindFirstChild("HumanoidRootPart")
+    local lPos = lRoot and lRoot.Position
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local username = player.Name
-            local model = GetPlayerModel(username)
+    for _, plr in ipairs(Players:GetPlayers()) do
+        if plr ~= LocalPlayer then
+            local name = plr.Name
+            local model = GetModel(name)
 
             if model and ESP.Enabled then
-                if not ESP.PlayerData[username] then
-                    ESP.PlayerData[username] = CreatePlayerESP()
+                if not ESP.PlayerData[name] then
+                    ESP.PlayerData[name] = NewESP()
                 end
+                local d = ESP.PlayerData[name]
 
-                local data = ESP.PlayerData[username]
-                local minPos, maxPos = GetModelBounds(model)
-                local screenCorners, allOnScreen = GetScreenCorners(minPos, maxPos)
-                local bbox = GetBoundingBox2D(screenCorners)
+                local min, max = GetBounds(model)
+                local pts = ToScreen(min, max)
+                local b = Box2D(pts)
 
                 local head = model:FindFirstChild("Head")
-                local headPos = nil
-                if head then
-                    local headScreen, onScreen = Camera:WorldToViewportPoint(head.Position + Vector3.new(0, 0.5, 0))
-                    headPos = Vector2.new(headScreen.X, headScreen.Y)
-                end
+                local hum = model:FindFirstChildOfClass("Humanoid")
+                local hp = hum and hum.Health or 0
+                local mhp = hum and hum.MaxHealth or 100
+                local hpPct = math.clamp(hp/mhp, 0, 1)
 
-                local humanoid = model:FindFirstChildOfClass("Humanoid")
-                local health = humanoid and humanoid.Health or 0
-                local maxHealth = humanoid and humanoid.MaxHealth or 100
-                local healthPercent = math.clamp(health / maxHealth, 0, 1)
-
-                local distance = 0
-                if localPlayerPos then
-                    local rootPart = model:FindFirstChild("Torso") or model:FindFirstChild("Head")
-                    if rootPart then
-                        distance = math.floor((localPlayerPos - rootPart.Position).Magnitude)
-                    end
+                local dist = 0
+                if lPos then
+                    local rp = model:FindFirstChild("Torso") or model:FindFirstChild("Head")
+                    if rp then dist = math.floor((lPos - rp.Position).Magnitude) end
                 end
 
                 if ESP.ShowBoxes then
-                    local outerSize = bbox.Size + Vector2.new(8, 8)
-                    local outerPos = bbox.Position - Vector2.new(4, 4)
+                    d.BoxOutline.Position = Vector2.new(b.X-1, b.Y-1)
+                    d.BoxOutline.Size = Vector2.new(b.W+2, b.H+2)
+                    d.BoxOutline.Visible = true
 
-                    data.BoxOutlineOuter.Position = outerPos - Vector2.new(1, 1)
-                    data.BoxOutlineOuter.Size = outerSize + Vector2.new(2, 2)
-                    data.BoxOutlineOuter.Color = ESP.OutlineColor
-                    data.BoxOutlineOuter.Thickness = 3
-                    data.BoxOutlineOuter.Visible = true
-
-                    data.BoxOuter.Position = outerPos
-                    data.BoxOuter.Size = outerSize
-                    data.BoxOuter.Color = ESP.OutlineColor
-                    data.BoxOuter.Thickness = 1
-                    data.BoxOuter.Visible = true
-
-                    local innerSize = bbox.Size - Vector2.new(4, 4)
-                    local innerPos = bbox.Position + Vector2.new(2, 2)
-
-                    data.BoxOutlineInner.Position = innerPos - Vector2.new(1, 1)
-                    data.BoxOutlineInner.Size = innerSize + Vector2.new(2, 2)
-                    data.BoxOutlineInner.Color = ESP.OutlineColor
-                    data.BoxOutlineInner.Thickness = 3
-                    data.BoxOutlineInner.Visible = true
-
-                    data.BoxInner.Position = innerPos
-                    data.BoxInner.Size = innerSize
-                    data.BoxInner.Color = ESP.BoxColor
-                    data.BoxInner.Thickness = 1
-                    data.BoxInner.Visible = true
+                    d.Box.Position = Vector2.new(b.X, b.Y)
+                    d.Box.Size = Vector2.new(b.W, b.H)
+                    d.Box.Color = ESP.BoxColor
+                    d.Box.Visible = true
                 else
-                    data.BoxOutlineOuter.Visible = false
-                    data.BoxOuter.Visible = false
-                    data.BoxOutlineInner.Visible = false
-                    data.BoxInner.Visible = false
+                    d.BoxOutline.Visible = false
+                    d.Box.Visible = false
                 end
 
                 if ESP.ShowHealth then
-                    local barHeight = bbox.Size.Y
-                    local barWidth = 3
-                    local barX = bbox.Position.x - 7
+                    local bw = 3
+                    local bx = b.X + b.W + 5
+                    local by = b.Y
+                    local bh = b.H
 
-                    data.HealthBarOutline.Position = Vector2.new(barX - 1, bbox.Position.Y - 1)
-                    data.HealthBarOutline.Size = Vector2.new(barWidth + 2, barHeight + 2)
-                    data.HealthBarOutline.Color = ESP.OutlineColor
-                    data.HealthBarOutline.Visible = true
+                    d.HealthBG.Position = Vector2.new(bx, by)
+                    d.HealthBG.Size = Vector2.new(bw, bh)
+                    d.HealthBG.Visible = true
 
-                    data.HealthBarBG.Position = Vector2.new(barX, bbox.Position.Y)
-                    data.HealthBarBG.Size = Vector2.new(barWidth, barHeight)
-                    data.HealthBarBG.Color = Color3.fromRGB(40, 40, 40)
-                    data.HealthBarBG.Visible = true
+                    d.HealthOutline.Position = Vector2.new(bx-1, by-1)
+                    d.HealthOutline.Size = Vector2.new(bw+2, bh+2)
+                    d.HealthOutline.Visible = true
 
-                    local filledHeight = barHeight * healthPercent
-                    local healthColor = Color3.fromRGB(
-                        255 * (1 - healthPercent),
-                        255 * healthPercent,
-                        0
-                    )
-
-                    data.HealthBar.Position = Vector2.new(barX, bbox.Position.Y + (barHeight - filledHeight))
-                    data.HealthBar.Size = Vector2.new(barWidth, filledHeight)
-                    data.HealthBar.Color = healthColor
-                    data.HealthBar.Visible = true
+                    local fh = bh * hpPct
+                    local hc = Color3.fromRGB(255*(1-hpPct), 255*hpPct, 0)
+                    d.HealthBar.Position = Vector2.new(bx, by + (bh - fh))
+                    d.HealthBar.Size = Vector2.new(bw, fh)
+                    d.HealthBar.Color = hc
+                    d.HealthBar.Visible = true
                 else
-                    data.HealthBarOutline.Visible = false
-                    data.HealthBarBG.Visible = false
-                    data.HealthBar.Visible = false
+                    d.HealthBG.Visible = false
+                    d.HealthOutline.Visible = false
+                    d.HealthBar.Visible = false
                 end
 
-                if ESP.ShowDistance and localPlayerPos then
-                    local distText = tostring(distance) .. "m"
+                if ESP.ShowDistance and lPos then
+                    local txt = dist .. "m"
+                    d.DistText.Text = txt
+                    d.DistText.Position = Vector2.new(b.CX, b.BY + 4)
+                    d.DistText.Visible = true
 
-                    data.Distance.Text = distText
-                    data.Distance.Position = bbox.BottomCenter + Vector2.new(0, 12)
-                    data.Distance.Color = Color3.fromRGB(200, 200, 200)
-                    data.Distance.Visible = true
-
-                    data.DistanceOutline.Text = distText
-                    data.DistanceOutline.Position = bbox.BottomCenter + Vector2.new(0, 12)
-                    data.DistanceOutline.Color = ESP.OutlineColor
-                    data.DistanceOutline.Visible = true
+                    d.DistOutline.Text = txt
+                    d.DistOutline.Position = Vector2.new(b.CX, b.BY + 4)
+                    d.DistOutline.Visible = true
                 else
-                    data.Distance.Visible = false
-                    data.DistanceOutline.Visible = false
+                    d.DistText.Visible = false
+                    d.DistOutline.Visible = false
                 end
 
-                if ESP.ShowNametags and headPos then
-                    local displayName = player.DisplayName or username
+                if ESP.ShowNametags and head then
+                    local hs, ho = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
+                    if ho then
+                        local dn = plr.DisplayName or name
+                        d.NameText.Text = dn
+                        d.NameText.Position = Vector2.new(hs.X, hs.Y - 16)
+                        d.NameText.Visible = true
 
-                    data.Nametag.Text = displayName
-                    data.Nametag.Color = ESP.NametagColor
-                    data.Nametag.Position = headPos - Vector2.new(0, 18)
-                    data.Nametag.Visible = true
-
-                    data.NametagOutline.Text = displayName
-                    data.NametagOutline.Color = ESP.OutlineColor
-                    data.NametagOutline.Position = headPos - Vector2.new(0, 18)
-                    data.NametagOutline.Visible = true
+                        d.NameOutline.Text = dn
+                        d.NameOutline.Position = Vector2.new(hs.X, hs.Y - 16)
+                        d.NameOutline.Visible = true
+                    else
+                        d.NameText.Visible = false
+                        d.NameOutline.Visible = false
+                    end
                 else
-                    data.Nametag.Visible = false
-                    data.NametagOutline.Visible = false
+                    d.NameText.Visible = false
+                    d.NameOutline.Visible = false
                 end
             else
-                if ESP.PlayerData[username] then
-                    RemovePlayerESP(ESP.PlayerData[username])
-                    ESP.PlayerData[username] = nil
+                if ESP.PlayerData[name] then
+                    RemoveESP(ESP.PlayerData[name])
+                    ESP.PlayerData[name] = nil
                 end
             end
         end
@@ -372,46 +230,33 @@ function ESP.Update()
 end
 
 function ESP.Clear()
-    for username, data in pairs(ESP.PlayerData) do
-        RemovePlayerESP(data)
-    end
+    for _, d in pairs(ESP.PlayerData) do RemoveESP(d) end
     ESP.PlayerData = {}
 end
 
 function ESP.Toggle(state)
     ESP.Enabled = state
-    if not state then
-        ESP.Clear()
-    end
+    if not state then ESP.Clear() end
 end
 
-function ESP.SetBoxColor(color)
-    ESP.BoxColor = color
-end
+function ESP.SetBoxColor(c) ESP.BoxColor = c end
 
 function ESP.Start()
     if ESP.Connections.Update then return end
-
     ESP.Connections.Update = RunService.RenderStepped:Connect(function()
-        if ESP.Enabled then
-            ESP.Update()
-        end
+        if ESP.Enabled then ESP.Update() end
     end)
-
-    ESP.Connections.PlayerRemoving = Players.PlayerRemoving:Connect(function(player)
-        local username = player.Name
-        if ESP.PlayerData[username] then
-            RemovePlayerESP(ESP.PlayerData[username])
-            ESP.PlayerData[username] = nil
+    ESP.Connections.Leaving = Players.PlayerRemoving:Connect(function(p)
+        if ESP.PlayerData[p.Name] then
+            RemoveESP(ESP.PlayerData[p.Name])
+            ESP.PlayerData[p.Name] = nil
         end
     end)
 end
 
 function ESP.Stop()
-    for _, conn in pairs(ESP.Connections) do
-        if conn and conn.Disconnect then
-            conn:Disconnect()
-        end
+    for _, c in pairs(ESP.Connections) do
+        if c and c.Disconnect then c:Disconnect() end
     end
     ESP.Connections = {}
     ESP.Clear()
