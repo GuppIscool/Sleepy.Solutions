@@ -26,8 +26,8 @@ local function CreateDrawing(type, props)
     return d
 end
 
-local function GetModel(model)
-    local m = workspace:FindFirstChild(model)
+local function GetModel(name)
+    local m = workspace:FindFirstChild(name)
     if m and m:IsA("Model") then return m end
     return nil
 end
@@ -35,10 +35,12 @@ end
 local function GetBounds(model)
     local min = Vector3.new(math.huge, math.huge, math.huge)
     local max = Vector3.new(-math.huge, -math.huge, -math.huge)
+    local found = false
 
     for _, name in ipairs(BONE_PARTS) do
         local p = model:FindFirstChild(name)
         if p and p:IsA("BasePart") then
+            found = true
             local cf, sz = p.CFrame, p.Size
             for _, off in ipairs({
                 Vector3.new(-sz.X/2,-sz.Y/2,-sz.Z/2),
@@ -56,11 +58,12 @@ local function GetBounds(model)
             end
         end
     end
+    if not found then return nil, nil end
     return min, max
 end
 
-local function ToScreen(min, max)
-    local pts = {}
+local function WorldToBox(min, max)
+    local corners = {}
     for _, c in ipairs({
         Vector3.new(min.X,min.Y,min.Z),
         Vector3.new(max.X,min.Y,min.Z),
@@ -71,39 +74,102 @@ local function ToScreen(min, max)
         Vector3.new(min.X,max.Y,max.Z),
         Vector3.new(max.X,max.Y,max.Z),
     }) do
-        local s, v = Camera:WorldToViewportPoint(c)
-        table.insert(pts, Vector2.new(s.X, s.Y))
+        local s, vis = Camera:WorldToViewportPoint(c)
+        table.insert(corners, {Vector2.new(s.X, s.Y), vis})
     end
-    return pts
-end
 
-local function Box2D(pts)
     local x1, y1, x2, y2 = math.huge, math.huge, -math.huge, -math.huge
-    for _, p in ipairs(pts) do
-        x1 = math.min(x1, p.X)
-        y1 = math.min(y1, p.Y)
-        x2 = math.max(x2, p.X)
-        y2 = math.max(y2, p.Y)
+    for _, v in ipairs(corners) do
+        x1 = math.min(x1, v[1].X)
+        y1 = math.min(y1, v[1].Y)
+        x2 = math.max(x2, v[1].X)
+        y2 = math.max(y2, v[1].Y)
     end
+
     return {
         X = x1, Y = y1,
         W = x2 - x1, H = y2 - y1,
-        CX = (x1+x2)/2, CY = (y1+y2)/2,
-        BY = y2,
+        CX = (x1+x2)/2,
     }
 end
 
 local function NewESP()
     return {
-        BoxOutline = CreateDrawing("Square", {Filled=false, Color=Color3.new(0,0,0), Thickness=3, Visible=false}),
-        Box = CreateDrawing("Square", {Filled=false, Color=Color3.new(1,1,1), Thickness=1, Visible=false}),
-        HealthBG = CreateDrawing("Square", {Filled=true, Color=Color3.new(0.15,0.15,0.15), Thickness=1, Visible=false}),
-        HealthOutline = CreateDrawing("Square", {Filled=false, Color=Color3.new(0,0,0), Thickness=1, Visible=false}),
-        HealthBar = CreateDrawing("Square", {Filled=true, Color=Color3.new(0,1,0), Thickness=1, Visible=false}),
-        DistText = CreateDrawing("Text", {Text="", Color=Color3.new(0.8,0.8,0.8), Size=11, Center=true, Outline=true, Font=2, Visible=false}),
-        DistOutline = CreateDrawing("Text", {Text="", Color=Color3.new(0,0,0), Size=11, Center=true, Outline=false, Font=2, Visible=false}),
-        NameText = CreateDrawing("Text", {Text="", Color=Color3.new(1,1,1), Size=11, Center=true, Outline=true, Font=2, Visible=false}),
-        NameOutline = CreateDrawing("Text", {Text="", Color=Color3.new(0,0,0), Size=11, Center=true, Outline=false, Font=2, Visible=false}),
+        Outline = CreateDrawing("Square", {
+            Filled = false,
+            Color = Color3.new(0,0,0),
+            Thickness = 3,
+            ZIndex = 1,
+            Visible = false,
+        }),
+        Box = CreateDrawing("Square", {
+            Filled = false,
+            Color = Color3.new(1,1,1),
+            Thickness = 1,
+            ZIndex = 2,
+            Visible = false,
+        }),
+        HealthOutline = CreateDrawing("Square", {
+            Filled = true,
+            Color = Color3.new(0,0,0),
+            Thickness = 1,
+            ZIndex = 1,
+            Visible = false,
+        }),
+        HealthBG = CreateDrawing("Square", {
+            Filled = true,
+            Color = Color3.fromRGB(40,40,40),
+            Thickness = 1,
+            ZIndex = 2,
+            Visible = false,
+        }),
+        HealthBar = CreateDrawing("Square", {
+            Filled = true,
+            Color = Color3.new(0,1,0),
+            Thickness = 1,
+            ZIndex = 3,
+            Visible = false,
+        }),
+        NameOutline = CreateDrawing("Text", {
+            Text = "",
+            Color = Color3.new(0,0,0),
+            Size = 11,
+            Center = true,
+            Outline = false,
+            Font = 2,
+            ZIndex = 1,
+            Visible = false,
+        }),
+        Name = CreateDrawing("Text", {
+            Text = "",
+            Color = Color3.new(1,1,1),
+            Size = 11,
+            Center = true,
+            Outline = true,
+            Font = 2,
+            ZIndex = 2,
+            Visible = false,
+        }),
+        DistOutline = CreateDrawing("Text", {
+            Text = "",
+            Color = Color3.new(0,0,0),
+            Size = 10,
+            Center = true,
+            Outline = false,
+            Font = 2,
+            ZIndex = 1,
+            Visible = false,
+        }),
+        Dist = CreateDrawing("Text", {
+            Text = "",
+            Color = Color3.fromRGB(180,180,180),
+            Size = 10,
+            Center = true,
+            Outline = true,
+            Font = 2,
+            ZIndex = 2,
+            Visible = false,
+        }),
     }
 end
 
@@ -131,10 +197,13 @@ function ESP.Update()
                 local d = ESP.PlayerData[name]
 
                 local min, max = GetBounds(model)
-                local pts = ToScreen(min, max)
-                local b = Box2D(pts)
+                if not min or not max then
+                    RemoveESP(d)
+                    ESP.PlayerData[name] = nil
+                    continue
+                end
 
-                local head = model:FindFirstChild("Head")
+                local b = WorldToBox(min, max)
                 local hum = model:FindFirstChildOfClass("Humanoid")
                 local hp = hum and hum.Health or 0
                 local mhp = hum and hum.MaxHealth or 100
@@ -147,32 +216,32 @@ function ESP.Update()
                 end
 
                 if ESP.ShowBoxes then
-                    d.BoxOutline.Position = Vector2.new(b.X-1, b.Y-1)
-                    d.BoxOutline.Size = Vector2.new(b.W+2, b.H+2)
-                    d.BoxOutline.Visible = true
+                    d.Outline.Position = Vector2.new(b.X-1, b.Y-1)
+                    d.Outline.Size = Vector2.new(b.W+2, b.H+2)
+                    d.Outline.Visible = true
 
                     d.Box.Position = Vector2.new(b.X, b.Y)
                     d.Box.Size = Vector2.new(b.W, b.H)
                     d.Box.Color = ESP.BoxColor
                     d.Box.Visible = true
                 else
-                    d.BoxOutline.Visible = false
+                    d.Outline.Visible = false
                     d.Box.Visible = false
                 end
 
                 if ESP.ShowHealth then
                     local bw = 3
-                    local bx = b.X + b.W + 5
+                    local bx = b.X - 6
                     local by = b.Y
                     local bh = b.H
-
-                    d.HealthBG.Position = Vector2.new(bx, by)
-                    d.HealthBG.Size = Vector2.new(bw, bh)
-                    d.HealthBG.Visible = true
 
                     d.HealthOutline.Position = Vector2.new(bx-1, by-1)
                     d.HealthOutline.Size = Vector2.new(bw+2, bh+2)
                     d.HealthOutline.Visible = true
+
+                    d.HealthBG.Position = Vector2.new(bx, by)
+                    d.HealthBG.Size = Vector2.new(bw, bh)
+                    d.HealthBG.Visible = true
 
                     local fh = bh * hpPct
                     local hc = Color3.fromRGB(255*(1-hpPct), 255*hpPct, 0)
@@ -181,43 +250,38 @@ function ESP.Update()
                     d.HealthBar.Color = hc
                     d.HealthBar.Visible = true
                 else
-                    d.HealthBG.Visible = false
                     d.HealthOutline.Visible = false
+                    d.HealthBG.Visible = false
                     d.HealthBar.Visible = false
+                end
+
+                if ESP.ShowNametags then
+                    local dn = plr.DisplayName or name
+                    d.Name.Text = dn
+                    d.Name.Position = Vector2.new(b.CX, b.Y - 16)
+                    d.Name.Color = ESP.NametagColor
+                    d.Name.Visible = true
+
+                    d.NameOutline.Text = dn
+                    d.NameOutline.Position = Vector2.new(b.CX, b.Y - 16)
+                    d.NameOutline.Visible = true
+                else
+                    d.Name.Visible = false
+                    d.NameOutline.Visible = false
                 end
 
                 if ESP.ShowDistance and lPos then
                     local txt = dist .. "m"
-                    d.DistText.Text = txt
-                    d.DistText.Position = Vector2.new(b.CX, b.BY + 4)
-                    d.DistText.Visible = true
+                    d.Dist.Text = txt
+                    d.Dist.Position = Vector2.new(b.CX, b.Y + b.H + 4)
+                    d.Dist.Visible = true
 
                     d.DistOutline.Text = txt
-                    d.DistOutline.Position = Vector2.new(b.CX, b.BY + 4)
+                    d.DistOutline.Position = Vector2.new(b.CX, b.Y + b.H + 4)
                     d.DistOutline.Visible = true
                 else
-                    d.DistText.Visible = false
+                    d.Dist.Visible = false
                     d.DistOutline.Visible = false
-                end
-
-                if ESP.ShowNametags and head then
-                    local hs, ho = Camera:WorldToViewportPoint(head.Position + Vector3.new(0,0.5,0))
-                    if ho then
-                        local dn = plr.DisplayName or name
-                        d.NameText.Text = dn
-                        d.NameText.Position = Vector2.new(hs.X, hs.Y - 16)
-                        d.NameText.Visible = true
-
-                        d.NameOutline.Text = dn
-                        d.NameOutline.Position = Vector2.new(hs.X, hs.Y - 16)
-                        d.NameOutline.Visible = true
-                    else
-                        d.NameText.Visible = false
-                        d.NameOutline.Visible = false
-                    end
-                else
-                    d.NameText.Visible = false
-                    d.NameOutline.Visible = false
                 end
             else
                 if ESP.PlayerData[name] then
