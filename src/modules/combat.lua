@@ -6,13 +6,6 @@ local Camera = workspace.CurrentCamera
 local LocalPlayer = Players.LocalPlayer
 local Mouse = LocalPlayer:GetMouse()
 
-Combat.HitboxExpander = {
-    Enabled = false,
-    Size = 5,
-    Keybind = Enum.KeyCode.B,
-    Mode = "Toggle",
-}
-
 Combat.SoftAim = {
     Enabled = false,
     FOV = 100,
@@ -29,7 +22,6 @@ Combat.Triggerbot = {
 }
 
 Combat.Connections = {}
-Combat.OriginalSizes = {}
 
 local BONE_PARTS = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
 
@@ -98,40 +90,6 @@ local function GetClosestPlayer()
     return best, bestDist
 end
 
-function Combat.UpdateHitbox()
-    if not Combat.HitboxExpander.Enabled then
-        if next(Combat.OriginalSizes) then
-            for part, data in pairs(Combat.OriginalSizes) do
-                if part and part.Parent then
-                    part.Size = data.Size
-                end
-            end
-            Combat.OriginalSizes = {}
-        end
-        return
-    end
-
-    for _, p in ipairs(Players:GetPlayers()) do
-        if p ~= LocalPlayer then
-            local m = GetModel(p.Name)
-            if m and IsAlive(m) then
-                for _, n in ipairs(BONE_PARTS) do
-                    local part = m:FindFirstChild(n)
-                    if part and part:IsA("BasePart") then
-                        if not Combat.OriginalSizes[part] then
-                            Combat.OriginalSizes[part] = {
-                                Size = part.Size,
-                            }
-                        end
-                        local s = Combat.HitboxExpander.Size
-                        part.Size = Vector3.new(s, s, s)
-                    end
-                end
-            end
-        end
-    end
-end
-
 function Combat.UpdateSoftAim()
     if not Combat.SoftAim.Enabled then return end
 
@@ -177,10 +135,6 @@ function Combat.UpdateTriggerbot()
     end
 end
 
-function Combat.SetHitboxSize(size)
-    Combat.HitboxExpander.Size = math.clamp(size, 1, 10)
-end
-
 function Combat.SetSoftAimFOV(fov)
     Combat.SoftAim.FOV = fov
 end
@@ -201,7 +155,6 @@ function Combat.Start()
     if Combat.Connections.Heartbeat then return end
 
     Combat.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
-        Combat.UpdateHitbox()
         Combat.UpdateTriggerbot()
     end)
 
@@ -218,16 +171,8 @@ function Combat.Stop()
     end
     Combat.Connections = {}
 
-    Combat.HitboxExpander.Enabled = false
     Combat.SoftAim.Enabled = false
     Combat.Triggerbot.Enabled = false
-
-    for part, data in pairs(Combat.OriginalSizes) do
-        if part and part.Parent then
-            part.Size = data.Size
-        end
-    end
-    Combat.OriginalSizes = {}
 end
 
 return Combat
