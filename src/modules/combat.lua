@@ -28,7 +28,6 @@ Combat.Triggerbot = {
     Mode = "Toggle",
 }
 
-Combat.ActiveBinds = {}
 Combat.Connections = {}
 Combat.OriginalSizes = {}
 
@@ -104,32 +103,32 @@ local function GetClosestPlayerToCursor()
 end
 
 function Combat.UpdateHitboxExpander()
+    if not Combat.HitboxExpander.Enabled then
+        for part, originalSize in pairs(Combat.OriginalSizes) do
+            if part and part.Parent then
+                part.Size = originalSize
+                part.Transparency = 0
+                part.Color = Color3.fromRGB(163, 162, 165)
+            end
+        end
+        Combat.OriginalSizes = {}
+        return
+    end
+
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= LocalPlayer then
             local model = GetPlayerModel(player.Name)
-            if model then
-                if Combat.HitboxExpander.Enabled then
-                    for _, partName in ipairs(BONE_PARTS) do
-                        local part = model:FindFirstChild(partName)
-                        if part and part:IsA("BasePart") then
-                            if not Combat.OriginalSizes[part] then
-                                Combat.OriginalSizes[part] = part.Size
-                            end
-                            part.Size = Vector3.new(Combat.HitboxExpander.Size, Combat.HitboxExpander.Size, Combat.HitboxExpander.Size)
-                            part.Transparency = 0.8
-                            part.Color = Color3.fromRGB(255, 0, 0)
-                            part.CanCollide = false
+            if model and IsAlive(model) then
+                for _, partName in ipairs(BONE_PARTS) do
+                    local part = model:FindFirstChild(partName)
+                    if part and part:IsA("BasePart") then
+                        if not Combat.OriginalSizes[part] then
+                            Combat.OriginalSizes[part] = part.Size
                         end
-                    end
-                else
-                    for _, partName in ipairs(BONE_PARTS) do
-                        local part = model:FindFirstChild(partName)
-                        if part and part:IsA("BasePart") and Combat.OriginalSizes[part] then
-                            part.Size = Combat.OriginalSizes[part]
-                            part.Transparency = 0
-                            part.Color = Color3.fromRGB(163, 162, 165)
-                            Combat.OriginalSizes[part] = nil
-                        end
+                        part.Size = Vector3.new(Combat.HitboxExpander.Size, Combat.HitboxExpander.Size, Combat.HitboxExpander.Size)
+                        part.Transparency = 0.8
+                        part.Color = Color3.fromRGB(255, 0, 0)
+                        part.CanCollide = false
                     end
                 end
             end
@@ -153,10 +152,12 @@ function Combat.UpdateSoftAim()
                 local dir = (targetScreen - screenCenter)
                 local smoothDir = dir / Combat.SoftAim.Smoothness
 
-                MouseMoveEvent = game:GetService("UserInputService"):SendMouseMoveEvent(
-                    screenCenter.X + smoothDir.X,
-                    screenCenter.Y + smoothDir.Y
-                )
+                pcall(function()
+                    game:GetService("UserInputService"):SendMouseMoveEvent(
+                        screenCenter.X + smoothDir.X,
+                        screenCenter.Y + smoothDir.Y
+                    )
+                end)
             end
         end
     end
@@ -171,9 +172,11 @@ function Combat.UpdateTriggerbot()
             if Combat.Triggerbot.Enabled then
                 local humanoid = closestPart.Parent:FindFirstChildOfClass("Humanoid")
                 if humanoid and humanoid.Health > 0 then
-                    mouse1press()
-                    task.wait(0.05)
-                    mouse1release()
+                    pcall(function()
+                        mouse1press()
+                        task.wait(0.05)
+                        mouse1release()
+                    end)
                 end
             end
         end)
@@ -197,25 +200,25 @@ function Combat.SetTriggerbotDelay(delay)
 end
 
 function Combat.Start()
-    if Connections.Heartbeat then return end
+    if Combat.Connections.Heartbeat then return end
 
-    Connections.Heartbeat = RunService.Heartbeat:Connect(function()
+    Combat.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
         Combat.UpdateHitboxExpander()
         Combat.UpdateTriggerbot()
     end)
 
-    Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+    Combat.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
         Combat.UpdateSoftAim()
     end)
 end
 
 function Combat.Stop()
-    for _, conn in pairs(Connections) do
+    for _, conn in pairs(Combat.Connections) do
         if conn and conn.Disconnect then
             conn:Disconnect()
         end
     end
-    Connections = {}
+    Combat.Connections = {}
 
     Combat.HitboxExpander.Enabled = false
     Combat.SoftAim.Enabled = false

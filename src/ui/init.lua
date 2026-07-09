@@ -55,76 +55,40 @@ function UI.CreateWindow()
     topBar.BorderSizePixel = 0
     topBar.Parent = mainFrame
 
-    local topBarBorder = Instance.new("UIStroke")
-    topBarBorder.Color = Colors.Border
-    topBarBorder.Thickness = 1
-    topBarBorder.Parent = topBar
+    local titleContainer = Instance.new("Frame")
+    titleContainer.Name = "TitleContainer"
+    titleContainer.Size = UDim2.new(0, 200, 1, 0)
+    titleContainer.Position = UDim2.new(0, 10, 0, 0)
+    titleContainer.BackgroundTransparency = 1
+    titleContainer.Parent = topBar
 
-    local titleText = Instance.new("TextLabel")
-    titleText.Name = "Title"
-    titleText.Size = UDim2.new(0, 300, 1, 0)
-    titleText.Position = UDim2.new(0, 12, 0, 0)
-    titleText.BackgroundTransparency = 1
-    titleText.Text = ""
-    titleText.TextColor3 = Colors.TextPrimary
-    titleText.Font = Enum.Font.Code
-    titleText.TextSize = 13
-    titleText.TextXAlignment = Enum.TextXAlignment.Left
-    titleText.Parent = topBar
+    local titleLabel = Instance.new("TextLabel")
+    titleLabel.Name = "Title"
+    titleLabel.Size = UDim2.new(1, 0, 1, 0)
+    titleLabel.BackgroundTransparency = 1
+    titleLabel.Text = "Sleepy.Solutions"
+    titleLabel.TextColor3 = Colors.TextPrimary
+    titleLabel.Font = Enum.Font.Code
+    titleLabel.TextSize = 13
+    titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+    titleLabel.RichText = true
+    titleLabel.Parent = titleContainer
 
-    local sleepyLabel = Instance.new("TextLabel")
-    sleepyLabel.Name = "Sleepy"
-    sleepyLabel.Size = UDim2.new(0, 52, 1, 0)
-    sleepyLabel.Position = UDim2.new(0, 0, 0, 0)
-    sleepyLabel.BackgroundTransparency = 1
-    sleepyLabel.Text = "Sleepy"
-    sleepyLabel.TextColor3 = Colors.TextPrimary
-    sleepyLabel.Font = Enum.Font.Code
-    sleepyLabel.TextSize = 13
-    sleepyLabel.TextXAlignment = Enum.TextXAlignment.Left
-    sleepyLabel.Parent = titleText
-
-    local dotLabel = Instance.new("TextLabel")
-    dotLabel.Name = "Dot"
-    dotLabel.Size = UDim2.new(0, 6, 1, 0)
-    dotLabel.Position = UDim2.new(0, 49, 0, 0)
-    dotLabel.BackgroundTransparency = 1
-    dotLabel.Text = "."
-    dotLabel.TextColor3 = Colors.TextPrimary
-    dotLabel.Font = Enum.Font.Code
-    dotLabel.TextSize = 13
-    dotLabel.Parent = titleText
-
-    local solutionsLabel = Instance.new("TextLabel")
-    solutionsLabel.Name = "Solutions"
-    solutionsLabel.Size = UDim2.new(0, 62, 1, 0)
-    solutionsLabel.Position = UDim2.new(0, 54, 0, 0)
-    solutionsLabel.BackgroundTransparency = 1
-    solutionsLabel.Text = "Solutions"
-    solutionsLabel.TextColor3 = Colors.Accent
-    solutionsLabel.Font = Enum.Font.Code
-    solutionsLabel.TextSize = 13
-    solutionsLabel.TextXAlignment = Enum.TextXAlignment.Left
-    solutionsLabel.Parent = titleText
-
-    local subLabel = Instance.new("TextLabel")
-    subLabel.Name = "SubTitle"
-    subLabel.Size = UDim2.new(0, 100, 1, 0)
-    subLabel.Position = UDim2.new(0, 120, 0, 0)
-    subLabel.BackgroundTransparency = 1
-    subLabel.Text = Config.Window.SubTitle
-    subLabel.TextColor3 = Colors.TextDim
-    subLabel.Font = Enum.Font.Code
-    subLabel.TextSize = 13
-    subLabel.TextXAlignment = Enum.TextXAlignment.Left
-    subLabel.Parent = titleText
+    titleLabel.Text = '<font color="rgb(200,200,200)">Sleepy</font><font color="rgb(200,200,200)">.</font><font color="rgb(180,130,255)">Solutions</font><font color="rgb(80,80,80)"> | HoPlex</font>'
 
     local tabBar = Instance.new("Frame")
     tabBar.Name = "TabBar"
-    tabBar.Size = UDim2.new(1, -240, 0, 32)
+    tabBar.Size = UDim2.new(0, 300, 1, 0)
     tabBar.Position = UDim2.new(0, 220, 0, 0)
     tabBar.BackgroundTransparency = 1
     tabBar.Parent = topBar
+
+    local tabLayout = Instance.new("UIListLayout")
+    tabLayout.FillDirection = Enum.FillDirection.Horizontal
+    tabLayout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+    tabLayout.VerticalAlignment = Enum.VerticalAlignment.Center
+    tabLayout.Padding = UDim.new(0, 0)
+    tabLayout.Parent = tabBar
 
     local contentArea = Instance.new("Frame")
     contentArea.Name = "ContentArea"
@@ -149,8 +113,8 @@ function UI.CreateWindow()
 
     local sidebarContent = Instance.new("Frame")
     sidebarContent.Name = "SidebarContent"
-    sidebarContent.Size = UDim2.new(1, -2, 1, -4)
-    sidebarContent.Position = UDim2.new(0, 1, 0, 2)
+    sidebarContent.Size = UDim2.new(1, -8, 1, -8)
+    sidebarContent.Position = UDim2.new(0, 4, 0, 4)
     sidebarContent.BackgroundTransparency = 1
     sidebarContent.Parent = sidebar
 
@@ -159,12 +123,6 @@ function UI.CreateWindow()
     sidebarLayout.Padding = UDim.new(0, 2)
     sidebarLayout.SortOrder = Enum.SortOrder.LayoutOrder
     sidebarLayout.Parent = sidebarContent
-
-    local sidebarPadding = Instance.new("UIPadding")
-    sidebarPadding.PaddingTop = UDim.new(0, 4)
-    sidebarPadding.PaddingLeft = UDim.new(0, 4)
-    sidebarPadding.PaddingRight = UDim.new(0, 4)
-    sidebarPadding.Parent = sidebarContent
 
     local mainContent = Instance.new("Frame")
     mainContent.Name = "MainContent"
@@ -192,19 +150,18 @@ function UI.CreateWindow()
     UI.ContentFrames = {}
 
     local tabNames = {"Combat", "Visual", "Movement", "Misc"}
-    local tabWidth = 1 / #tabNames
 
     for i, tabName in ipairs(tabNames) do
         local tabBtn = Instance.new("TextButton")
         tabBtn.Name = tabName
-        tabBtn.Size = UDim2.new(tabWidth, -4, 1, 0)
-        tabBtn.Position = UDim2.new((i - 1) * tabWidth, 2, 0, 0)
+        tabBtn.Size = UDim2.new(0, 70, 0, 26)
         tabBtn.BackgroundTransparency = 1
         tabBtn.Text = tabName
         tabBtn.TextColor3 = Colors.TextSecondary
         tabBtn.Font = Enum.Font.Code
-        tabBtn.TextSize = 13
+        tabBtn.TextSize = 12
         tabBtn.AutoButtonColor = false
+        tabBtn.LayoutOrder = i
         tabBtn.Parent = tabBar
 
         local tabContent = Instance.new("ScrollingFrame")
