@@ -200,6 +200,10 @@ function Combat.SetTriggerbotDelay(delay)
 end
 
 function Combat.Start()
+    if not Combat.Connections then
+        Combat.Connections = {}
+    end
+    
     if Combat.Connections.Heartbeat then return end
 
     Combat.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
@@ -213,6 +217,11 @@ function Combat.Start()
 end
 
 function Combat.Stop()
+    if not Combat.Connections then
+        Combat.Connections = {}
+        return
+    end
+    
     for _, conn in pairs(Combat.Connections) do
         if conn and conn.Disconnect then
             conn:Disconnect()
