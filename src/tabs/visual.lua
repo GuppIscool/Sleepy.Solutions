@@ -14,22 +14,26 @@ function VisualTab.Setup(UI)
         end)
 
         Components.CreateToggle(mainSection, "Fullbright", false, function(value)
+            local lighting = game:GetService("Lighting")
             if value then
-                game:GetService("Lighting").Brightness = 2
-                game:GetService("Lighting").ClockTime = 14
+                lighting.Brightness = 2
+                lighting.ClockTime = 14
+                lighting.GlobalShadows = false
             else
-                game:GetService("Lighting").Brightness = 0
-                game:GetService("Lighting").ClockTime = 12
+                lighting.Brightness = 0
+                lighting.ClockTime = 12
+                lighting.GlobalShadows = true
             end
         end)
 
         Components.CreateToggle(mainSection, "NoFog", false, function(value)
+            local lighting = game:GetService("Lighting")
             if value then
-                game:GetService("Lighting").FogEnd = 99999
-                game:GetService("Lighting").FogStart = 99999
+                lighting.FogEnd = 999999
+                lighting.FogStart = 999999
             else
-                game:GetService("Lighting").FogEnd = 100000
-                game:GetService("Lighting").FogStart = 0
+                lighting.FogEnd = 100000
+                lighting.FogStart = 0
             end
         end)
     end
@@ -44,21 +48,21 @@ function VisualTab.Setup(UI)
             ESP.ShowNametags = value
         end)
 
-        Components.CreateColorPicker(espSection, "Box Color", Color3.fromRGB(255, 255, 255), function(color)
-            ESP.SetBoxColor(color)
+        Components.CreateToggle(espSection, "Show Health", true, function(value)
+            ESP.ShowHealth = value
         end)
 
-        Components.CreateSlider(espSection, "Box Thickness", 1, 5, 2, function(value)
-            ESP.SetBoxThickness(value)
+        Components.CreateToggle(espSection, "Show Distance", true, function(value)
+            ESP.ShowDistance = value
+        end)
+
+        Components.CreateColorPicker(espSection, "Box Color", Color3.fromRGB(255, 255, 255), function(color)
+            ESP.SetBoxColor(color)
         end)
     end
 
     local worldSection = UI.CreateSection("Visual", "World")
     if worldSection then
-        Components.CreateSlider(worldSection, "Brightness", 0, 10, 5, function(value)
-            game:GetService("Lighting").Brightness = value
-        end)
-
         Components.CreateToggle(worldSection, "NoTextures", false, function(value)
             if value then
                 for _, obj in ipairs(workspace:GetDescendants()) do
@@ -78,7 +82,7 @@ function VisualTab.Setup(UI)
         Components.CreateToggle(worldSection, "XRay", false, function(value)
             if value then
                 for _, obj in ipairs(workspace:GetDescendants()) do
-                    if obj:IsA("BasePart") and not obj.Parent:FindFirstChild("Humanoid") then
+                    if obj:IsA("BasePart") and not obj.Parent:FindFirstChildOfClass("Humanoid") then
                         obj.LocalTransparencyModifier = 0.7
                     end
                 end
