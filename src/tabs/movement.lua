@@ -1,36 +1,41 @@
 local MovementTab = {}
-
 local Components = loadstring(game:HttpGet("https://raw.githubusercontent.com/GuppIscool/Sleepy.Solutions/main/src/ui/components.lua"))()
 
 function MovementTab.Setup(tab)
-    Components.CreateToggle(tab, "Speed", false, UDim2.new(0, 10, 0, 10), function(value)
-        -- TODO: Implement Speed
+    if not tab then return end
+
+    Components.CreateSection(tab, "Speed")
+
+    Components.CreateToggle(tab, "Speed Hack", false, function(value)
         print("Speed:", value)
     end)
-    
-    Components.CreateSlider(tab, "Speed Value", 16, 100, 50, UDim2.new(0, 10, 0, 50), function(value)
-        -- TODO: Implement Speed Value
+
+    Components.CreateSlider(tab, "Speed Value", 16, 100, 50, function(value)
         print("Speed Value:", value)
     end)
-    
-    Components.CreateToggle(tab, "Fly", false, UDim2.new(0, 10, 0, 110), function(value)
-        -- TODO: Implement Fly
+
+    Components.CreateSection(tab, "Fly")
+
+    Components.CreateToggle(tab, "Fly", false, function(value)
         print("Fly:", value)
     end)
-    
-    Components.CreateSlider(tab, "Fly Speed", 1, 50, 20, UDim2.new(0, 10, 0, 150), function(value)
-        -- TODO: Implement Fly Speed
+
+    Components.CreateSlider(tab, "Fly Speed", 1, 50, 20, function(value)
         print("Fly Speed:", value)
     end)
-    
-    Components.CreateToggle(tab, "JumpBoost", false, UDim2.new(0, 10, 0, 210), function(value)
-        -- TODO: Implement JumpBoost
-        print("JumpBoost:", value)
+
+    Components.CreateSection(tab, "Jump")
+
+    Components.CreateToggle(tab, "Jump Boost", false, function(value)
+        print("Jump Boost:", value)
     end)
-    
-    Components.CreateSlider(tab, "Jump Power", 50, 200, 100, UDim2.new(0, 10, 0, 250), function(value)
-        -- TODO: Implement Jump Power
+
+    Components.CreateSlider(tab, "Jump Power", 50, 200, 100, function(value)
         print("Jump Power:", value)
+    end)
+
+    Components.CreateToggle(tab, "Infinite Jump", false, function(value)
+        print("Infinite Jump:", value)
     end)
 end
 

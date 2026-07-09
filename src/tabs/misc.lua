@@ -1,36 +1,45 @@
 local MiscTab = {}
-
 local Components = loadstring(game:HttpGet("https://raw.githubusercontent.com/GuppIscool/Sleepy.Solutions/main/src/ui/components.lua"))()
 
 function MiscTab.Setup(tab)
-    Components.CreateToggle(tab, "AntiAFK", false, UDim2.new(0, 10, 0, 10), function(value)
-        -- TODO: Implement AntiAFK
+    if not tab then return end
+
+    Components.CreateSection(tab, "Player")
+
+    Components.CreateToggle(tab, "AntiAFK", false, function(value)
         print("AntiAFK:", value)
     end)
-    
-    Components.CreateToggle(tab, "AutoFarm", false, UDim2.new(0, 10, 0, 50), function(value)
-        -- TODO: Implement AutoFarm
-        print("AutoFarm:", value)
-    end)
-    
-    Components.CreateButton(tab, "Server Info", UDim2.new(0, 10, 0, 90), function()
-        -- TODO: Implement Server Info
-        print("Server Info clicked")
-    end)
-    
-    Components.CreateSelectionBox(tab, "Chat Spam", {"Off", "Hello", "GG", "EZ"}, "Off", UDim2.new(0, 10, 0, 130), function(value)
-        -- TODO: Implement Chat Spam
-        print("Chat Spam:", value)
-    end)
-    
-    Components.CreateToggle(tab, "NoClip", false, UDim2.new(0, 10, 0, 170), function(value)
-        -- TODO: Implement NoClip
+
+    Components.CreateToggle(tab, "NoClip", false, function(value)
         print("NoClip:", value)
     end)
-    
-    Components.CreateButton(tab, "Rejoin", UDim2.new(0, 10, 0, 210), function()
-        -- TODO: Implement Rejoin
+
+    Components.CreateToggle(tab, "AutoRespawn", false, function(value)
+        print("AutoRespawn:", value)
+    end)
+
+    Components.CreateSection(tab, "Server")
+
+    Components.CreateButton(tab, "Server Info", function()
+        print("Server Info clicked")
+    end)
+
+    Components.CreateButton(tab, "Rejoin Server", function()
         print("Rejoin clicked")
+    end)
+
+    Components.CreateDropdown(tab, "Chat Spam", {"Off", "Hello", "GG", "EZ"}, "Off", function(value)
+        print("Chat Spam:", value)
+    end)
+
+    Components.CreateSection(tab, "Farm")
+
+    Components.CreateToggle(tab, "AutoFarm", false, function(value)
+        print("AutoFarm:", value)
+    end)
+
+    Components.CreateToggle(tab, "AutoMine", false, function(value)
+        print("AutoMine:", value)
     end)
 end
 
