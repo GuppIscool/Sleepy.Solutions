@@ -1,301 +1,238 @@
 local ESP = {}
 local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
-local Camera = workspace.CurrentCamera
+local Workspace = game:GetService("Workspace")
+
 local LocalPlayer = Players.LocalPlayer
+local Camera = Workspace.CurrentCamera
 
 ESP.Enabled = false
 ESP.ShowBoxes = true
 ESP.ShowNametags = true
 ESP.ShowHealth = true
 ESP.ShowDistance = true
-ESP.BoxColor = Color3.fromRGB(255, 255, 255)
-ESP.BoxThickness = 1
-ESP.NametagColor = Color3.fromRGB(255, 255, 255)
+ESP.BoxColor = Color3.new(1, 1, 1)
+ESP.NametagColor = Color3.new(1, 1, 1)
 
-ESP.PlayerData = {}
-ESP.Connections = {}
+local TARGET_PARTS = {
+    "Torso",
+    "Right Arm",
+    "Right Leg",
+    "Left Leg",
+    "Left Arm",
+    "Head"
+}
 
-local BONE_PARTS = {"Head", "Left Arm", "Left Leg", "Right Arm", "Right Leg", "Torso"}
+local playerDrawings = {}
 
-local function CreateDrawing(type, props)
-    local d = Drawing.new(type)
-    for k, v in pairs(props or {}) do
-        d[k] = v
+local function createSquare(color, thickness, zIndex)
+    local s = Drawing.new("Square")
+    s.Color = color
+    s.Thickness = thickness
+    s.Filled = false
+    s.Visible = false
+    s.ZIndex = zIndex
+    return s
+end
+
+local function createText(color, size, font, outline, zIndex)
+    local t = Drawing.new("Text")
+    t.Color = color
+    t.Size = size
+    t.Font = font or 2
+    t.Center = true
+    t.Outline = outline
+    t.Visible = false
+    t.ZIndex = zIndex or 1
+    return t
+end
+
+local function setupDrawings(player)
+    if player == LocalPlayer then return end
+
+    playerDrawings[player] = {
+        outline = createSquare(Color3.new(0, 0, 0), 3, 1),
+        box = createSquare(ESP.BoxColor, 1, 2),
+        healthOutline = createSquare(Color3.new(0, 0, 0), 1, 1),
+        healthBG = createSquare(Color3.fromRGB(40, 40, 40), 1, 2),
+        healthBar = createSquare(Color3.new(0, 1, 0), 1, 3),
+        nameOutline = createText(Color3.new(0, 0, 0), 11, 2, false, 1),
+        name = createText(Color3.new(1, 1, 1), 11, 2, true, 2),
+        distOutline = createText(Color3.new(0, 0, 0), 10, 2, false, 1),
+        dist = createText(Color3.fromRGB(180, 180, 180), 10, 2, true, 2),
+    }
+end
+
+local function removeDrawings(player)
+    if playerDrawings[player] then
+        for _, d in pairs(playerDrawings[player]) do
+            if d and d.Remove then pcall(function() d:Remove() end) end
+        end
+        playerDrawings[player] = nil
     end
-    return d
 end
 
-local function GetModel(name)
-    local m = workspace:FindFirstChild(name)
-    if m and m:IsA("Model") then return m end
-    return nil
-end
+function ESP.GetBox(player)
+    local character = player.Character
+    if not character then return nil end
 
-local function GetBounds(model)
-    local min = Vector3.new(math.huge, math.huge, math.huge)
-    local max = Vector3.new(-math.huge, -math.huge, -math.huge)
-    local found = false
+    local minX, minY = math.huge, math.huge
+    local maxX, maxY = -math.huge, -math.huge
+    local hasParts = false
 
-    for _, name in ipairs(BONE_PARTS) do
-        local p = model:FindFirstChild(name)
-        if p and p:IsA("BasePart") then
-            found = true
-            local cf, sz = p.CFrame, p.Size
+    for _, partName in ipairs(TARGET_PARTS) do
+        local part = character:FindFirstChild(partName)
+        if part and part:IsA("BasePart") then
+            hasParts = true
+            local size = part.Size
+            local cf = part.CFrame
+
             for _, off in ipairs({
-                Vector3.new(-sz.X/2,-sz.Y/2,-sz.Z/2),
-                Vector3.new(sz.X/2,-sz.Y/2,-sz.Z/2),
-                Vector3.new(-sz.X/2,sz.Y/2,-sz.Z/2),
-                Vector3.new(sz.X/2,sz.Y/2,-sz.Z/2),
-                Vector3.new(-sz.X/2,-sz.Y/2,sz.Z/2),
-                Vector3.new(sz.X/2,-sz.Y/2,sz.Z/2),
-                Vector3.new(-sz.X/2,sz.Y/2,sz.Z/2),
-                Vector3.new(sz.X/2,sz.Y/2,sz.Z/2),
+                CFrame.new(-size.X/2, -size.Y/2, -size.Z/2),
+                CFrame.new(size.X/2, -size.Y/2, -size.Z/2),
+                CFrame.new(-size.X/2, size.Y/2, -size.Z/2),
+                CFrame.new(size.X/2, size.Y/2, -size.Z/2),
+                CFrame.new(-size.X/2, -size.Y/2, size.Z/2),
+                CFrame.new(size.X/2, -size.Y/2, size.Z/2),
+                CFrame.new(-size.X/2, size.Y/2, size.Z/2),
+                CFrame.new(size.X/2, size.Y/2, size.Z/2),
             }) do
-                local c = cf * off
-                min = Vector3.new(math.min(min.X,c.X), math.min(min.Y,c.Y), math.min(min.Z,c.Z))
-                max = Vector3.new(math.max(max.X,c.X), math.max(max.Y,c.Y), math.max(max.Z,c.Z))
+                local sp = Camera:WorldToViewportPoint((cf * off).Position)
+                minX = math.min(minX, sp.X)
+                minY = math.min(minY, sp.Y)
+                maxX = math.max(maxX, sp.X)
+                maxY = math.max(maxY, sp.Y)
             end
         end
     end
-    if not found then return nil, nil end
-    return min, max
-end
 
-local function WorldToBox(min, max)
-    local corners = {}
-    for _, c in ipairs({
-        Vector3.new(min.X,min.Y,min.Z),
-        Vector3.new(max.X,min.Y,min.Z),
-        Vector3.new(min.X,max.Y,min.Z),
-        Vector3.new(max.X,max.Y,min.Z),
-        Vector3.new(min.X,min.Y,max.Z),
-        Vector3.new(max.X,min.Y,max.Z),
-        Vector3.new(min.X,max.Y,max.Z),
-        Vector3.new(max.X,max.Y,max.Z),
-    }) do
-        local s, vis = Camera:WorldToViewportPoint(c)
-        table.insert(corners, {Vector2.new(s.X, s.Y), vis})
-    end
-
-    local x1, y1, x2, y2 = math.huge, math.huge, -math.huge, -math.huge
-    for _, v in ipairs(corners) do
-        x1 = math.min(x1, v[1].X)
-        y1 = math.min(y1, v[1].Y)
-        x2 = math.max(x2, v[1].X)
-        y2 = math.max(y2, v[1].Y)
-    end
+    if not hasParts then return nil end
 
     return {
-        X = x1, Y = y1,
-        W = x2 - x1, H = y2 - y1,
-        CX = (x1+x2)/2,
+        X = minX, Y = minY,
+        W = maxX - minX, H = maxY - minY,
+        CX = (minX + maxX) / 2,
     }
-end
-
-local function NewESP()
-    return {
-        Outline = CreateDrawing("Square", {
-            Filled = false,
-            Color = Color3.new(0,0,0),
-            Thickness = 3,
-            ZIndex = 1,
-            Visible = false,
-        }),
-        Box = CreateDrawing("Square", {
-            Filled = false,
-            Color = Color3.new(1,1,1),
-            Thickness = 1,
-            ZIndex = 2,
-            Visible = false,
-        }),
-        HealthOutline = CreateDrawing("Square", {
-            Filled = true,
-            Color = Color3.new(0,0,0),
-            Thickness = 1,
-            ZIndex = 1,
-            Visible = false,
-        }),
-        HealthBG = CreateDrawing("Square", {
-            Filled = true,
-            Color = Color3.fromRGB(40,40,40),
-            Thickness = 1,
-            ZIndex = 2,
-            Visible = false,
-        }),
-        HealthBar = CreateDrawing("Square", {
-            Filled = true,
-            Color = Color3.new(0,1,0),
-            Thickness = 1,
-            ZIndex = 3,
-            Visible = false,
-        }),
-        NameOutline = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.new(0,0,0),
-            Size = 11,
-            Center = true,
-            Outline = false,
-            Font = 2,
-            ZIndex = 1,
-            Visible = false,
-        }),
-        Name = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.new(1,1,1),
-            Size = 11,
-            Center = true,
-            Outline = true,
-            Font = 2,
-            ZIndex = 2,
-            Visible = false,
-        }),
-        DistOutline = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.new(0,0,0),
-            Size = 10,
-            Center = true,
-            Outline = false,
-            Font = 2,
-            ZIndex = 1,
-            Visible = false,
-        }),
-        Dist = CreateDrawing("Text", {
-            Text = "",
-            Color = Color3.fromRGB(180,180,180),
-            Size = 10,
-            Center = true,
-            Outline = true,
-            Font = 2,
-            ZIndex = 2,
-            Visible = false,
-        }),
-    }
-end
-
-local function RemoveESP(d)
-    for _, v in pairs(d) do
-        if v and v.Remove then pcall(function() v:Remove() end) end
-    end
 end
 
 function ESP.Update()
-    Camera = workspace.CurrentCamera
-    local lChar = LocalPlayer.Character
-    local lRoot = lChar and lChar:FindFirstChild("HumanoidRootPart")
-    local lPos = lRoot and lRoot.Position
+    Camera = Workspace.CurrentCamera
 
-    for _, plr in ipairs(Players:GetPlayers()) do
-        if plr ~= LocalPlayer then
-            local name = plr.Name
-            local model = GetModel(name)
+    for player, drawings in pairs(playerDrawings) do
+        if player == LocalPlayer then continue end
 
-            if model and ESP.Enabled then
-                if not ESP.PlayerData[name] then
-                    ESP.PlayerData[name] = NewESP()
-                end
-                local d = ESP.PlayerData[name]
+        local character = player.Character
+        local torso = character and (character:FindFirstChild("Torso") or character:FindFirstChild("UpperTorso"))
 
-                local min, max = GetBounds(model)
-                if not min or not max then
-                    RemoveESP(d)
-                    ESP.PlayerData[name] = nil
+        if ESP.Enabled and character and torso then
+            local _, isVisible = Camera:WorldToViewportPoint(torso.Position)
+
+            if isVisible then
+                local box = ESP.GetBox(player)
+                if box then
+                    if ESP.ShowBoxes then
+                        drawings.outline.Size = Vector2.new(box.W + 2, box.H + 2)
+                        drawings.outline.Position = Vector2.new(box.X - 1, box.Y - 1)
+                        drawings.outline.Visible = true
+
+                        drawings.box.Size = Vector2.new(box.W, box.H)
+                        drawings.box.Position = Vector2.new(box.X, box.Y)
+                        drawings.box.Color = ESP.BoxColor
+                        drawings.box.Visible = true
+                    else
+                        drawings.outline.Visible = false
+                        drawings.box.Visible = false
+                    end
+
+                    if ESP.ShowHealth then
+                        local hum = character:FindFirstChildOfClass("Humanoid")
+                        local hp = hum and hum.Health or 0
+                        local mhp = hum and hum.MaxHealth or 100
+                        local pct = math.clamp(hp / mhp, 0, 1)
+
+                        local bw = 3
+                        local bx = box.X - 6
+                        local by = box.Y
+                        local bh = box.H
+
+                        drawings.healthOutline.Size = Vector2.new(bw + 2, bh + 2)
+                        drawings.healthOutline.Position = Vector2.new(bx - 1, by - 1)
+                        drawings.healthOutline.Visible = true
+
+                        drawings.healthBG.Size = Vector2.new(bw, bh)
+                        drawings.healthBG.Position = Vector2.new(bx, by)
+                        drawings.healthBG.Visible = true
+
+                        local fh = bh * pct
+                        local hc = Color3.fromRGB(255 * (1 - pct), 255 * pct, 0)
+                        drawings.healthBar.Size = Vector2.new(bw, fh)
+                        drawings.healthBar.Position = Vector2.new(bx, by + (bh - fh))
+                        drawings.healthBar.Color = hc
+                        drawings.healthBar.Visible = true
+                    else
+                        drawings.healthOutline.Visible = false
+                        drawings.healthBG.Visible = false
+                        drawings.healthBar.Visible = false
+                    end
+
+                    if ESP.ShowNametags then
+                        local dn = player.DisplayName or player.Name
+                        drawings.name.Text = dn
+                        drawings.name.Position = Vector2.new(box.CX, box.Y - 16)
+                        drawings.name.Color = ESP.NametagColor
+                        drawings.name.Visible = true
+
+                        drawings.nameOutline.Text = dn
+                        drawings.nameOutline.Position = Vector2.new(box.CX, box.Y - 16)
+                        drawings.nameOutline.Visible = true
+                    else
+                        drawings.name.Visible = false
+                        drawings.nameOutline.Visible = false
+                    end
+
+                    if ESP.ShowDistance then
+                        local lChar = LocalPlayer.Character
+                        local lRoot = lChar and lChar:FindFirstChild("HumanoidRootPart")
+                        if lRoot then
+                            local dist = math.floor((lRoot.Position - torso.Position).Magnitude)
+                            local txt = dist .. "m"
+                            drawings.dist.Text = txt
+                            drawings.dist.Position = Vector2.new(box.CX, box.Y + box.H + 4)
+                            drawings.dist.Visible = true
+
+                            drawings.distOutline.Text = txt
+                            drawings.distOutline.Position = Vector2.new(box.CX, box.Y + box.H + 4)
+                            drawings.distOutline.Visible = true
+                        end
+                    else
+                        drawings.dist.Visible = false
+                        drawings.distOutline.Visible = false
+                    end
+
                     continue
-                end
-
-                local b = WorldToBox(min, max)
-                local hum = model:FindFirstChildOfClass("Humanoid")
-                local hp = hum and hum.Health or 0
-                local mhp = hum and hum.MaxHealth or 100
-                local hpPct = math.clamp(hp/mhp, 0, 1)
-
-                local dist = 0
-                if lPos then
-                    local rp = model:FindFirstChild("Torso") or model:FindFirstChild("Head")
-                    if rp then dist = math.floor((lPos - rp.Position).Magnitude) end
-                end
-
-                if ESP.ShowBoxes then
-                    d.Outline.Position = Vector2.new(b.X-1, b.Y-1)
-                    d.Outline.Size = Vector2.new(b.W+2, b.H+2)
-                    d.Outline.Visible = true
-
-                    d.Box.Position = Vector2.new(b.X, b.Y)
-                    d.Box.Size = Vector2.new(b.W, b.H)
-                    d.Box.Color = ESP.BoxColor
-                    d.Box.Visible = true
-                else
-                    d.Outline.Visible = false
-                    d.Box.Visible = false
-                end
-
-                if ESP.ShowHealth then
-                    local bw = 3
-                    local bx = b.X - 6
-                    local by = b.Y
-                    local bh = b.H
-
-                    d.HealthOutline.Position = Vector2.new(bx-1, by-1)
-                    d.HealthOutline.Size = Vector2.new(bw+2, bh+2)
-                    d.HealthOutline.Visible = true
-
-                    d.HealthBG.Position = Vector2.new(bx, by)
-                    d.HealthBG.Size = Vector2.new(bw, bh)
-                    d.HealthBG.Visible = true
-
-                    local fh = bh * hpPct
-                    local hc = Color3.fromRGB(255*(1-hpPct), 255*hpPct, 0)
-                    d.HealthBar.Position = Vector2.new(bx, by + (bh - fh))
-                    d.HealthBar.Size = Vector2.new(bw, fh)
-                    d.HealthBar.Color = hc
-                    d.HealthBar.Visible = true
-                else
-                    d.HealthOutline.Visible = false
-                    d.HealthBG.Visible = false
-                    d.HealthBar.Visible = false
-                end
-
-                if ESP.ShowNametags then
-                    local dn = plr.DisplayName or name
-                    d.Name.Text = dn
-                    d.Name.Position = Vector2.new(b.CX, b.Y - 16)
-                    d.Name.Color = ESP.NametagColor
-                    d.Name.Visible = true
-
-                    d.NameOutline.Text = dn
-                    d.NameOutline.Position = Vector2.new(b.CX, b.Y - 16)
-                    d.NameOutline.Visible = true
-                else
-                    d.Name.Visible = false
-                    d.NameOutline.Visible = false
-                end
-
-                if ESP.ShowDistance and lPos then
-                    local txt = dist .. "m"
-                    d.Dist.Text = txt
-                    d.Dist.Position = Vector2.new(b.CX, b.Y + b.H + 4)
-                    d.Dist.Visible = true
-
-                    d.DistOutline.Text = txt
-                    d.DistOutline.Position = Vector2.new(b.CX, b.Y + b.H + 4)
-                    d.DistOutline.Visible = true
-                else
-                    d.Dist.Visible = false
-                    d.DistOutline.Visible = false
-                end
-            else
-                if ESP.PlayerData[name] then
-                    RemoveESP(ESP.PlayerData[name])
-                    ESP.PlayerData[name] = nil
                 end
             end
         end
+
+        drawings.outline.Visible = false
+        drawings.box.Visible = false
+        drawings.healthOutline.Visible = false
+        drawings.healthBG.Visible = false
+        drawings.healthBar.Visible = false
+        drawings.name.Visible = false
+        drawings.nameOutline.Visible = false
+        drawings.dist.Visible = false
+        drawings.distOutline.Visible = false
     end
 end
 
 function ESP.Clear()
-    for _, d in pairs(ESP.PlayerData) do RemoveESP(d) end
-    ESP.PlayerData = {}
+    for _, d in pairs(playerDrawings) do
+        for _, v in pairs(d) do
+            if v and v.Remove then pcall(function() v:Remove() end) end
+        end
+    end
+    playerDrawings = {}
 end
 
 function ESP.Toggle(state)
@@ -303,26 +240,42 @@ function ESP.Toggle(state)
     if not state then ESP.Clear() end
 end
 
-function ESP.SetBoxColor(c) ESP.BoxColor = c end
+function ESP.SetBoxColor(c)
+    ESP.BoxColor = c
+end
 
 function ESP.Start()
-    if ESP.Connections.Update then return end
-    ESP.Connections.Update = RunService.RenderStepped:Connect(function()
-        if ESP.Enabled then ESP.Update() end
+    if ESP.Connections then return end
+    ESP.Connections = {}
+
+    Players.PlayerAdded:Connect(function(player)
+        if player ~= LocalPlayer then
+            setupDrawings(player)
+        end
     end)
-    ESP.Connections.Leaving = Players.PlayerRemoving:Connect(function(p)
-        if ESP.PlayerData[p.Name] then
-            RemoveESP(ESP.PlayerData[p.Name])
-            ESP.PlayerData[p.Name] = nil
+
+    Players.PlayerRemoving:Connect(removeDrawings)
+
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= LocalPlayer then
+            setupDrawings(player)
+        end
+    end
+
+    ESP.Connections.Render = RunService.RenderStepped:Connect(function()
+        if ESP.Enabled then
+            ESP.Update()
         end
     end)
 end
 
 function ESP.Stop()
-    for _, c in pairs(ESP.Connections) do
-        if c and c.Disconnect then c:Disconnect() end
+    if ESP.Connections then
+        for _, c in pairs(ESP.Connections) do
+            if c and c.Disconnect then c:Disconnect() end
+        end
+        ESP.Connections = nil
     end
-    ESP.Connections = {}
     ESP.Clear()
 end
 

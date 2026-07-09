@@ -8,7 +8,7 @@ local Mouse = LocalPlayer:GetMouse()
 
 Combat.HitboxExpander = {
     Enabled = false,
-    Size = 10,
+    Size = 5,
     Keybind = Enum.KeyCode.B,
     Mode = "Toggle",
 }
@@ -31,39 +31,37 @@ Combat.Triggerbot = {
 Combat.Connections = {}
 Combat.OriginalSizes = {}
 
-local BONE_PARTS = {"Head", "Left Arm", "Left Leg", "Right Arm", "Right Leg", "Torso"}
+local BONE_PARTS = {"Head", "Torso", "Left Arm", "Right Arm", "Left Leg", "Right Leg"}
 
-local function GetPlayerModel(username)
-    local model = workspace:FindFirstChild(username)
-    if model and model:IsA("Model") then
-        return model
-    end
+local function GetModel(name)
+    local m = workspace:FindFirstChild(name)
+    if m and m:IsA("Model") then return m end
     return nil
 end
 
 local function IsAlive(model)
-    local humanoid = model:FindFirstChildOfClass("Humanoid")
-    return humanoid and humanoid.Health > 0
+    local h = model:FindFirstChildOfClass("Humanoid")
+    return h and h.Health > 0
 end
 
-local function GetClosestPartToCursor()
-    local closestPart = nil
-    local closestDist = math.huge
-    local cursorPos = Vector2.new(Mouse.X, Mouse.Y)
+local function GetClosestPart()
+    local best = nil
+    local bestDist = math.huge
+    local mPos = Vector2.new(Mouse.X, Mouse.Y)
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local model = GetPlayerModel(player.Name)
-            if model and IsAlive(model) then
-                for _, partName in ipairs(BONE_PARTS) do
-                    local part = model:FindFirstChild(partName)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local m = GetModel(p.Name)
+            if m and IsAlive(m) then
+                for _, n in ipairs(BONE_PARTS) do
+                    local part = m:FindFirstChild(n)
                     if part and part:IsA("BasePart") then
-                        local screenPos, onScreen = Camera:WorldToViewportPoint(part.Position)
-                        if onScreen then
-                            local dist = (Vector2.new(screenPos.X, screenPos.Y) - cursorPos).Magnitude
-                            if dist < closestDist then
-                                closestDist = dist
-                                closestPart = part
+                        local s, v = Camera:WorldToViewportPoint(part.Position)
+                        if v then
+                            local d = (Vector2.new(s.X, s.Y) - mPos).Magnitude
+                            if d < bestDist then
+                                bestDist = d
+                                best = part
                             end
                         end
                     end
@@ -71,64 +69,62 @@ local function GetClosestPartToCursor()
             end
         end
     end
-
-    return closestPart, closestDist
+    return best, bestDist
 end
 
-local function GetClosestPlayerToCursor()
-    local closestPlayer = nil
-    local closestDist = math.huge
-    local cursorPos = Vector2.new(Mouse.X, Mouse.Y)
+local function GetClosestPlayer()
+    local best = nil
+    local bestDist = math.huge
+    local mPos = Vector2.new(Mouse.X, Mouse.Y)
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local model = GetPlayerModel(player.Name)
-            if model and IsAlive(model) then
-                local head = model:FindFirstChild("Head")
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local m = GetModel(p.Name)
+            if m and IsAlive(m) then
+                local head = m:FindFirstChild("Head")
                 if head then
-                    local screenPos, onScreen = Camera:WorldToViewportPoint(head.Position)
-                    if onScreen then
-                        local dist = (Vector2.new(screenPos.X, screenPos.Y) - cursorPos).Magnitude
-                        if dist < closestDist then
-                            closestDist = dist
-                            closestPlayer = player
+                    local s, v = Camera:WorldToViewportPoint(head.Position)
+                    if v then
+                        local d = (Vector2.new(s.X, s.Y) - mPos).Magnitude
+                        if d < bestDist then
+                            bestDist = d
+                            best = p
                         end
                     end
                 end
             end
         end
     end
-
-    return closestPlayer, closestDist
+    return best, bestDist
 end
 
-function Combat.UpdateHitboxExpander()
+function Combat.UpdateHitbox()
     if not Combat.HitboxExpander.Enabled then
-        for part, originalSize in pairs(Combat.OriginalSizes) do
-            if part and part.Parent then
-                part.Size = originalSize
-                part.Transparency = 0
-                part.Color = Color3.fromRGB(163, 162, 165)
+        if next(Combat.OriginalSizes) then
+            for part, data in pairs(Combat.OriginalSizes) do
+                if part and part.Parent then
+                    part.Size = data.Size
+                end
             end
+            Combat.OriginalSizes = {}
         end
-        Combat.OriginalSizes = {}
         return
     end
 
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LocalPlayer then
-            local model = GetPlayerModel(player.Name)
-            if model and IsAlive(model) then
-                for _, partName in ipairs(BONE_PARTS) do
-                    local part = model:FindFirstChild(partName)
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LocalPlayer then
+            local m = GetModel(p.Name)
+            if m and IsAlive(m) then
+                for _, n in ipairs(BONE_PARTS) do
+                    local part = m:FindFirstChild(n)
                     if part and part:IsA("BasePart") then
                         if not Combat.OriginalSizes[part] then
-                            Combat.OriginalSizes[part] = part.Size
+                            Combat.OriginalSizes[part] = {
+                                Size = part.Size,
+                            }
                         end
-                        part.Size = Vector3.new(Combat.HitboxExpander.Size, Combat.HitboxExpander.Size, Combat.HitboxExpander.Size)
-                        part.Transparency = 0.8
-                        part.Color = Color3.fromRGB(255, 0, 0)
-                        part.CanCollide = false
+                        local s = Combat.HitboxExpander.Size
+                        part.Size = Vector3.new(s, s, s)
                     end
                 end
             end
@@ -139,23 +135,21 @@ end
 function Combat.UpdateSoftAim()
     if not Combat.SoftAim.Enabled then return end
 
-    local targetPlayer, dist = GetClosestPlayerToCursor()
-    if targetPlayer and dist <= Combat.SoftAim.FOV then
-        local model = GetPlayerModel(targetPlayer.Name)
-        if model and IsAlive(model) then
-            local head = model:FindFirstChild("Head")
+    local target, dist = GetClosestPlayer()
+    if target and dist <= Combat.SoftAim.FOV then
+        local m = GetModel(target.Name)
+        if m and IsAlive(m) then
+            local head = m:FindFirstChild("Head")
             if head then
-                local targetPos = Camera:WorldToViewportPoint(head.Position)
-                local screenCenter = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
-                local targetScreen = Vector2.new(targetPos.X, targetPos.Y)
-
-                local dir = (targetScreen - screenCenter)
-                local smoothDir = dir / Combat.SoftAim.Smoothness
+                local ts = Camera:WorldToViewportPoint(head.Position)
+                local center = Vector2.new(Camera.ViewportSize.X / 2, Camera.ViewportSize.Y / 2)
+                local target2D = Vector2.new(ts.X, ts.Y)
+                local dir = (target2D - center) / Combat.SoftAim.Smoothness
 
                 pcall(function()
-                    game:GetService("UserInputService"):SendMouseMoveEvent(
-                        screenCenter.X + smoothDir.X,
-                        screenCenter.Y + smoothDir.Y
+                    UserInputService:SendMouseMoveEvent(
+                        center.X + dir.X,
+                        center.Y + dir.Y
                     )
                 end)
             end
@@ -166,12 +160,12 @@ end
 function Combat.UpdateTriggerbot()
     if not Combat.Triggerbot.Enabled then return end
 
-    local closestPart, dist = GetClosestPartToCursor()
-    if closestPart and dist < 20 then
+    local part, dist = GetClosestPart()
+    if part and dist < 20 then
         task.delay(Combat.Triggerbot.Delay, function()
             if Combat.Triggerbot.Enabled then
-                local humanoid = closestPart.Parent:FindFirstChildOfClass("Humanoid")
-                if humanoid and humanoid.Health > 0 then
+                local hum = part.Parent:FindFirstChildOfClass("Humanoid")
+                if hum and hum.Health > 0 then
                     pcall(function()
                         mouse1press()
                         task.wait(0.05)
@@ -203,29 +197,24 @@ function Combat.Start()
     if not Combat.Connections then
         Combat.Connections = {}
     end
-    
+
     if Combat.Connections.Heartbeat then return end
 
     Combat.Connections.Heartbeat = RunService.Heartbeat:Connect(function()
-        Combat.UpdateHitboxExpander()
+        Combat.UpdateHitbox()
         Combat.UpdateTriggerbot()
     end)
 
-    Combat.Connections.RenderStepped = RunService.RenderStepped:Connect(function()
+    Combat.Connections.Render = RunService.RenderStepped:Connect(function()
         Combat.UpdateSoftAim()
     end)
 end
 
 function Combat.Stop()
-    if not Combat.Connections then
-        Combat.Connections = {}
-        return
-    end
-    
-    for _, conn in pairs(Combat.Connections) do
-        if conn and conn.Disconnect then
-            conn:Disconnect()
-        end
+    if not Combat.Connections then return end
+
+    for _, c in pairs(Combat.Connections) do
+        if c and c.Disconnect then c:Disconnect() end
     end
     Combat.Connections = {}
 
@@ -233,11 +222,9 @@ function Combat.Stop()
     Combat.SoftAim.Enabled = false
     Combat.Triggerbot.Enabled = false
 
-    for part, originalSize in pairs(Combat.OriginalSizes) do
+    for part, data in pairs(Combat.OriginalSizes) do
         if part and part.Parent then
-            part.Size = originalSize
-            part.Transparency = 0
-            part.Color = Color3.fromRGB(163, 162, 165)
+            part.Size = data.Size
         end
     end
     Combat.OriginalSizes = {}
