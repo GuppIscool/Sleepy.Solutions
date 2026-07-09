@@ -1,39 +1,41 @@
 local Config = {}
 
--- Window Settings
 Config.Window = {
-    Size = UDim2.new(0, 500, 0, 350),
-    Position = UDim2.new(0.5, -250, 0.5, -175),
+    Size = UDim2.new(0, 600, 0, 400),
+    Position = UDim2.new(0.5, -300, 0.5, -200),
     Title = "Sleepy.Solutions",
+    SubTitle = "| HoPlex",
 }
 
--- Colors (Fluent/Material Design)
 Config.Colors = {
-    Background = Color3.fromRGB(30, 30, 46),
-    Surface = Color3.fromRGB(43, 43, 61),
-    SurfaceLight = Color3.fromRGB(55, 55, 75),
-    Primary = Color3.fromRGB(124, 58, 237),
-    PrimaryLight = Color3.fromRGB(167, 119, 227),
-    Accent = Color3.fromRGB(192, 132, 252), -- Solutions color
-    TextPrimary = Color3.fromRGB(255, 255, 255),
-    TextSecondary = Color3.fromRGB(160, 160, 176),
-    Success = Color3.fromRGB(76, 175, 80),
-    Warning = Color3.fromRGB(255, 193, 7),
-    Error = Color3.fromRGB(244, 67, 54),
+    Background = Color3.fromRGB(18, 18, 18),
+    Surface = Color3.fromRGB(24, 24, 24),
+    SurfaceLight = Color3.fromRGB(32, 32, 32),
+    Border = Color3.fromRGB(45, 45, 45),
+    Primary = Color3.fromRGB(130, 90, 220),
+    Accent = Color3.fromRGB(180, 130, 255),
+    TextPrimary = Color3.fromRGB(200, 200, 200),
+    TextSecondary = Color3.fromRGB(120, 120, 120),
+    TextDim = Color3.fromRGB(80, 80, 80),
+    Success = Color3.fromRGB(80, 180, 80),
+    Warning = Color3.fromRGB(220, 180, 50),
+    Error = Color3.fromRGB(200, 60, 60),
 }
 
--- Keybinds
 Config.Keybinds = {
     Toggle = {Enum.KeyCode.Insert, Enum.KeyCode.RightShift},
 }
 
--- Tabs
-Config.Tabs = {"Combat", "Visual", "Movement", "Misc"}
+Config.Tabs = {
+    Combat = {"Main", "Weapons", "Targeting"},
+    Visual = {"Main", "ESP", "World"},
+    Movement = {"Main", "Speed", "Flight"},
+    Misc = {"Main", "Server", "Farm"},
+}
 
--- Animation Settings
 Config.Animation = {
-    TweenSpeed = 0.2,
-    EasingStyle = Enum.EasingStyle.Quint,
+    TweenSpeed = 0.15,
+    EasingStyle = Enum.EasingStyle.Quad,
     EasingDirection = Enum.EasingDirection.Out,
 }
 

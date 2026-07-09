@@ -1,42 +1,49 @@
 local MovementTab = {}
 local Components = loadstring(game:HttpGet("https://raw.githubusercontent.com/GuppIscool/Sleepy.Solutions/main/src/ui/components.lua"))()
 
-function MovementTab.Setup(tab)
-    if not tab then return end
+function MovementTab.Setup(UI)
+    if not UI then return end
 
-    Components.CreateSection(tab, "Speed")
+    local mainSection = UI.CreateSection("Movement", "Main")
+    if mainSection then
+        Components.CreateToggle(mainSection, "Speed Hack", false, function(value)
+            print("Speed:", value)
+        end)
 
-    Components.CreateToggle(tab, "Speed Hack", false, function(value)
-        print("Speed:", value)
-    end)
+        Components.CreateToggle(mainSection, "Fly", false, function(value)
+            print("Fly:", value)
+        end)
 
-    Components.CreateSlider(tab, "Speed Value", 16, 100, 50, function(value)
-        print("Speed Value:", value)
-    end)
+        Components.CreateToggle(mainSection, "Jump Boost", false, function(value)
+            print("Jump Boost:", value)
+        end)
+    end
 
-    Components.CreateSection(tab, "Fly")
+    local speedSection = UI.CreateSection("Movement", "Speed")
+    if speedSection then
+        Components.CreateSlider(speedSection, "Speed Value", 16, 100, 50, function(value)
+            print("Speed Value:", value)
+        end)
 
-    Components.CreateToggle(tab, "Fly", false, function(value)
-        print("Fly:", value)
-    end)
+        Components.CreateDropdown(speedSection, "Speed Mode", {"Walk", "Sprint", "Bhop"}, "Walk", function(value)
+            print("Speed Mode:", value)
+        end)
+    end
 
-    Components.CreateSlider(tab, "Fly Speed", 1, 50, 20, function(value)
-        print("Fly Speed:", value)
-    end)
+    local flightSection = UI.CreateSection("Movement", "Flight")
+    if flightSection then
+        Components.CreateSlider(flightSection, "Fly Speed", 1, 50, 20, function(value)
+            print("Fly Speed:", value)
+        end)
 
-    Components.CreateSection(tab, "Jump")
+        Components.CreateDropdown(flightSection, "Fly Mode", {"Normal", "Smooth", "Physics"}, "Normal", function(value)
+            print("Fly Mode:", value)
+        end)
 
-    Components.CreateToggle(tab, "Jump Boost", false, function(value)
-        print("Jump Boost:", value)
-    end)
-
-    Components.CreateSlider(tab, "Jump Power", 50, 200, 100, function(value)
-        print("Jump Power:", value)
-    end)
-
-    Components.CreateToggle(tab, "Infinite Jump", false, function(value)
-        print("Infinite Jump:", value)
-    end)
+        Components.CreateToggle(flightSection, "Anti-Kick", false, function(value)
+            print("Anti-Kick:", value)
+        end)
+    end
 end
 
 return MovementTab

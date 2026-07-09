@@ -5,11 +5,11 @@ local function LoadModule(url)
     local success, result = pcall(function()
         return loadstring(game:HttpGet(url))()
     end)
-    
+
     if success then
         return result
     else
-        warn("Failed to load module: " .. url)
+        warn("[Sleepy.Solutions] Failed to load: " .. url)
         return nil
     end
 end
@@ -17,7 +17,7 @@ end
 local UI = LoadModule("https://raw.githubusercontent.com/GuppIscool/Sleepy.Solutions/main/src/ui/init.lua")
 
 if not UI then
-    warn("Failed to load UI library")
+    warn("[Sleepy.Solutions] Failed to load UI library")
     return
 end
 
@@ -30,19 +30,19 @@ UI.CreateWindow()
 UI.SetupKeybinds()
 
 if CombatTab then
-    CombatTab.Setup(UI.GetTab("Combat"))
+    CombatTab.Setup(UI)
 end
 
 if VisualTab then
-    VisualTab.Setup(UI.GetTab("Visual"))
+    VisualTab.Setup(UI)
 end
 
 if MovementTab then
-    MovementTab.Setup(UI.GetTab("Movement"))
+    MovementTab.Setup(UI)
 end
 
 if MiscTab then
-    MiscTab.Setup(UI.GetTab("Misc"))
+    MiscTab.Setup(UI)
 end
 
-print("Sleepy.Solutions loaded successfully!")
+print("[Sleepy.Solutions] Loaded successfully!")

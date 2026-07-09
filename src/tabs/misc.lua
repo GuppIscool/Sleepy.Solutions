@@ -1,46 +1,53 @@
 local MiscTab = {}
 local Components = loadstring(game:HttpGet("https://raw.githubusercontent.com/GuppIscool/Sleepy.Solutions/main/src/ui/components.lua"))()
 
-function MiscTab.Setup(tab)
-    if not tab then return end
+function MiscTab.Setup(UI)
+    if not UI then return end
 
-    Components.CreateSection(tab, "Player")
+    local mainSection = UI.CreateSection("Misc", "Main")
+    if mainSection then
+        Components.CreateToggle(mainSection, "AntiAFK", false, function(value)
+            print("AntiAFK:", value)
+        end)
 
-    Components.CreateToggle(tab, "AntiAFK", false, function(value)
-        print("AntiAFK:", value)
-    end)
+        Components.CreateToggle(mainSection, "NoClip", false, function(value)
+            print("NoClip:", value)
+        end)
 
-    Components.CreateToggle(tab, "NoClip", false, function(value)
-        print("NoClip:", value)
-    end)
+        Components.CreateToggle(mainSection, "AutoRespawn", false, function(value)
+            print("AutoRespawn:", value)
+        end)
+    end
 
-    Components.CreateToggle(tab, "AutoRespawn", false, function(value)
-        print("AutoRespawn:", value)
-    end)
+    local serverSection = UI.CreateSection("Misc", "Server")
+    if serverSection then
+        Components.CreateButton(serverSection, "Server Info", function()
+            print("Server Info clicked")
+        end)
 
-    Components.CreateSection(tab, "Server")
+        Components.CreateButton(serverSection, "Rejoin Server", function()
+            print("Rejoin clicked")
+        end)
 
-    Components.CreateButton(tab, "Server Info", function()
-        print("Server Info clicked")
-    end)
+        Components.CreateButton(serverSection, "Copy Server ID", function()
+            print("Copy Server ID")
+        end)
+    end
 
-    Components.CreateButton(tab, "Rejoin Server", function()
-        print("Rejoin clicked")
-    end)
+    local farmSection = UI.CreateSection("Misc", "Farm")
+    if farmSection then
+        Components.CreateToggle(farmSection, "AutoFarm", false, function(value)
+            print("AutoFarm:", value)
+        end)
 
-    Components.CreateDropdown(tab, "Chat Spam", {"Off", "Hello", "GG", "EZ"}, "Off", function(value)
-        print("Chat Spam:", value)
-    end)
+        Components.CreateToggle(farmSection, "AutoMine", false, function(value)
+            print("AutoMine:", value)
+        end)
 
-    Components.CreateSection(tab, "Farm")
-
-    Components.CreateToggle(tab, "AutoFarm", false, function(value)
-        print("AutoFarm:", value)
-    end)
-
-    Components.CreateToggle(tab, "AutoMine", false, function(value)
-        print("AutoMine:", value)
-    end)
+        Components.CreateDropdown(farmSection, "Farm Mode", {"Manual", "Auto", "Smart"}, "Manual", function(value)
+            print("Farm Mode:", value)
+        end)
+    end
 end
 
 return MiscTab
